@@ -119,5 +119,22 @@ impl Db {
         }
         Ok(logs)
     }
+
+    pub fn get_all_log_names(&self) -> Result<Vec<(u32, String)>, DbError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, title FROM logs")
+            .map_err(|_| DbError::QueryFailed)?;
+
+        let logs_iter = stmt.query_map(params![], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|_| DbError::QueryFailed)?;
+
+        let mut result: Vec<(u32, String)> = Vec::new();
+        for log in logs_iter {
+            result.push(log.map_err(|_| DbError::QueryFailed)?);
+        }
+
+        Ok(result)
+    }
 }
 
