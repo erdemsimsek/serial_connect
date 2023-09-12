@@ -3,6 +3,7 @@ use std::error::Error;
 use std::result::Result::Ok;
 use std::fmt;
 
+
 #[derive(Debug)]
 pub enum DbError {
     ConnectionFailed,
@@ -97,13 +98,14 @@ impl Db {
         Ok(())
     }
 
-    pub fn get_logs(&self) -> Result<Vec<Log>, DbError> {
+    pub fn get_log(&self, id: u32) -> Result<Log, DbError> {
         let mut stmt = self
             .conn
-            .prepare("SELECT * FROM logs")
+            .prepare("SELECT * FROM logs WHERE id = ?1")
             .map_err(|_| DbError::QueryFailed)?;
-        let logs_iter = stmt
-            .query_map(params![], |row| {
+
+        let mut logs_iter = stmt
+            .query_map(params![id], |row| {
                 Ok(Log {
                     id: row.get(0)?,
                     title: row.get(1)?,
@@ -113,11 +115,12 @@ impl Db {
             })
             .map_err(|_| DbError::QueryFailed)?;
 
-        let mut logs = Vec::new();
-        for log in logs_iter {
-            logs.push(log.map_err(|_| DbError::QueryFailed)?);
+        if let Some(log) = logs_iter.next() {
+            let log = log.map_err(|_| DbError::QueryFailed)?;
+            Ok(log)
+        } else {
+            Err(DbError::QueryFailed)
         }
-        Ok(logs)
     }
 
     pub fn get_all_log_names(&self) -> Result<Vec<(u32, String)>, DbError> {
@@ -135,6 +138,13 @@ impl Db {
         }
 
         Ok(result)
+    }
+
+    pub fn delete_log(&self, id: u32) -> Result<(), DbError> {
+        self.conn
+            .execute("DELETE FROM logs WHERE id = ?1", params![id])
+            .map_err(|_| DbError::QueryFailed)?;
+        Ok(())
     }
 }
 
